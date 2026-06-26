@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مساحة عمل نوشن الذكية | Notion Workspace & Supabase</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #37352f;
+            --border-color: #e9e9e6;
+            --accent-color: #2383e2;
+            --card-bg: #f7f7f5;
+            --hover-bg: #efeee0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            overflow-y: auto;
+            min-height: 100vh;
+        }
+
+        .notion-container {
+            width: 100%;
+            max-width: 1000px;
+            padding: 60px 40px;
+        }
+
+        .page-header {
+            margin-bottom: 40px;
+        }
+
+        .page-icon {
+            font-size: 75px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        h1 {
+            font-size: 40px;
+            font-weight: 700;
+            outline: none;
+            margin-bottom: 15px;
+        }
+
+        /* شريط الإعدادات العلوي للـ API والـ Supabase */
+        .api-config {
+            background: var(--card-bg);
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            font-size: 13px;
+            border: 1px solid var(--border-color);
+        }
+
+        .api-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .api-row input {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            outline: none;
+        }
+
+        .kanban-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 30px;
+            margin-bottom: 40px;
+        }
+
+        .kanban-column {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 16px;
+            min-height: 350px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 14px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .task-card {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            cursor: grab;
+            font-size: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .task-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .task-actions button {
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .task-actions button:hover {
+            color: #ff4d4f;
+        }
+
+        .add-task-btn {
+            background: none;
+            border: none;
+            color: #64645f;
+            padding: 8px;
+            text-align: right;
+            cursor: pointer;
+            font-size: 14px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .add-task-btn:hover {
+            background: var(--hover-bg);
+            color: var(--text-color);
+        }
+
+        .notion-ai-block {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            background: #ffffff;
+            margin-top: 40px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .ai-input-wrapper {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .ai-input-wrapper input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        button.btn-notion {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .ai-response-area {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f4f9ff;
+            border-right: 4px solid var(--accent-color);
+            border-radius: 4px;
+            min-height: 40px;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-line;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="notion-container">
+        
+        <div class="api-config">
+            <strong>⚙️ إعدادات الربط والاتصال:</strong>
+            <div class="api-row">
+                <label style="width: 110px;">Supabase URL:</label>
+                <input type="text" id="supabaseUrl" placeholder="https://your-project.supabase.co" onchange="initSupabase()">
+            </div>
+            <div class="api-row">
+                <label style="width: 110px;">Supabase Anon Key:</label>
+                <input type="text" id="supabaseKey" placeholder="eyJhbGciOiJIUzI1NiIsInR..." onchange="initSupabase()">
+            </div>
+            <div class="api-row" style="margin-top: 5px; border-top: 1px dashed var(--border-color); padding-top: 10px;">
+                <label style="width: 110px;">Gemini API Key:</label>
+                <input type="text" id="geminiApiKey" placeholder="AI Studio Key...">
+            </div>
+        </div>
+
+        <div class="page-header">
+            <span class="page-icon">🚀</span>
+            <h1>مساحة عملي المتقدمة</h1>
+            <p style="color: #64645f;">مربوطة لحظياً بقاعدة بيانات Supabase ومدعومة بـ Gemini AI.</p>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid var(--border-color); margin-bottom: 30px;">
+
+        <h2>📋 لوحة المتابعة والمهام</h2>
+        <div class="kanban-board">
+            
+            <div class="kanban-column" id="todo-col" ondragover="allowDrop(event)" ondrop="drop(event, 'todo-col')">
+                <div class="column-header">
+                    <span>🔴 بانتظار البدء</span>
+                    <span style="color: #888;" id="count-todo-col">0</span>
+                </div>
+                <div class="column-tasks" id="tasks-todo-col"></div>
+                <button class="add-task-btn" onclick="promptNewTask('todo-col')">➕ إضافة مهمة</button>
+            </div>
+
+            <div class="kanban-column" id="progress-col" ondragover="allowDrop(event)" ondrop="drop(event, 'progress-col')">
+                <div class="column-header">
+                    <span>🟡 جاري العمل عليها</span>
+                    <span style="color: #888;" id="count-progress-col">0</span>
+                </div>
+                <div class="column-tasks" id="tasks-progress-col"></div>
+                <button class="add-task-btn" onclick="promptNewTask('progress-col')">➕ إضافة مهمة</button>
+            </div>
+
+            <div class="kanban-column" id="done-col" ondragover="allowDrop(event)" ondrop="drop(event, 'done-col')">
+                <div class="column-header">
+                    <span>🟢 تم الإنجاز 🎉</span>
+                    <span style="color: #888;" id="count-done-col">0</span>
+                </div>
+                <div class="column-tasks" id="tasks-done-col"></div>
+                <button class="add-task-btn" onclick="promptNewTask('done-col')">➕ إضافة مهمة</button>
+            </div>
+
+        </div>
+
+        <div class="notion-ai-block">
+            <h3 style="display: flex; align-items: center; gap: 8px; color: var(--accent-color);">✨ Notion AI Assistant</h3>
+            <div class="ai-input-wrapper">
+                <input type="text" id="aiCommandInput" placeholder="اسأل المساعد عن مهامك الحالية...">
+                <button class="btn-notion" onclick="callGeminiWorkspace()">اسأل الذكاء الاصطناعي</button>
+            </div>
+            <div class="ai-response-area" id="aiResponseDisplay"></div>
+        </div>
+
+    </div>
+
+    <script>
+        let supabaseClient = null;
+
+        // تهيئة اتصال السوبربيس
+        function initSupabase() {
+            const url = document.getElementById('supabaseUrl').value.trim();
+            const key = document.getElementById('supabaseKey').value.trim();
+            
+            if (url && key) {
+                supabaseClient = supabase.createClient(url, key);
+                fetchTasks(); // جلب البيانات أول ما يتصل
+                subscribeToChanges(); // تفعيل التحديث اللحظي
+            }
+        }
+
+        // جلب المهام من جدول سوبربيس واظهارها باللوحة
+        async function fetchTasks() {
+            if (!supabaseClient) return;
+            const { data: tasks, error } = await supabaseClient.from('tasks').select('*');
+            
+            if (error) {
+                console.error('خطأ في جلب البيانات:', error);
+                return;
+            }
+
+            // تنظيف الأعمدة قبل الرسم
+            document.getElementById('tasks-todo-col').innerHTML = '';
+            document.getElementById('tasks-progress-col').innerHTML = '';
+            document.getElementById('tasks-done-col').innerHTML = '';
+
+            tasks.forEach(task => {
+                renderTaskCard(task.id, task.content, task.status);
+            });
+            updateCounters();
+        }
+
+        // رسم كرت المهمة داخل العمود الصحيح
+        function renderTaskCard(id, content, columnId) {
+            const column = document.getElementById(`tasks-${columnId}`);
+            if (!column) return;
+
+            const taskCard = document.createElement('div');
+            taskCard.className = 'task-card';
+            taskCard.draggable = true;
+            taskCard.id = 'task-' + id;
+            taskCard.setAttribute('ondragstart', 'drag(event)');
+
+            taskCard.innerHTML = `
+                <div class="task-content">${content}</div>
+                <div class="task-actions">
+                    <button onclick="deleteTaskFromSupabase(${id})">حذف</button>
+                </div>
+            `;
+            column.appendChild(taskCard);
+        }
+
+        // إضافة مهمة جديدة وحفظها في قاعدة البيانات
+        async function promptNewTask(columnId) {
+            if (!supabaseClient) {
+                alert('فضلاً أدخل بيانات Supabase أولاً ليتم الحفظ!');
+                return;
+            }
+            const taskText = prompt("أدخل تفاصيل المهمة الجديدة:");
+            if (!taskText || !taskText.trim()) return;
+
+            const { error } = await supabaseClient
+                .from('tasks')
+                .insert([{ content: taskText, status: columnId }]);
+
+            if (error) console.error('خطأ أثناء الإضافة:', error);
+            // ملاحظة: التحديث اللحظي المبرمج بالأسفل سيتولى إعادة الرسم تلقائياً
+        }
+
+        // السحب والإفلات وتحديث الحالة في قاعدة البيانات فوراً
+        function allowDrop(ev) { ev.preventDefault(); }
+        function drag(ev) { ev.dataTransfer.setData("text", ev.target.id); }
+
+        async function drop(ev, targetColumnId) {
+            ev.preventDefault();
+            const data = ev.dataTransfer.getRawData ? ev.dataTransfer.getRawData("text") : ev.dataTransfer.getData("text");
+            const dbId = data.replace('task-', '');
+
+            if (!supabaseClient) return;
+
+            const { error } = await supabaseClient
+                .from('tasks')
+                .update({ status: targetColumnId })
+                .eq('id', dbId);
+
+            if (error) console.error('خطأ أثناء نقل المهمة:', error);
+        }
+
+        // حذف المهمة من السيرفر
+        async function deleteTaskFromSupabase(id) {
+            if (!supabaseClient) return;
+            const { error } = await supabaseClient.from('tasks').eq('id', id).delete();
+            if (error) console.error('خطأ أثناء الحذف:', error);
+        }
+
+        // تفعيل ميزة الـ Realtime للاستماع للتغييرات لحظياً
+        function subscribeToChanges() {
+            supabaseClient
+                .channel('schema-db-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, payload => {
+                    fetchTasks(); // إعادة جلب وتحديث اللوحة عند أي إضافة/تعديل/حذف بالسيرفر
+                })
+                .subscribe();
+        }
+
+        function updateCounters() {
+            ['todo-col', 'progress-col', 'done-col'].forEach(colId => {
+                const count = document.getElementById(`tasks-${colId}`).querySelectorAll('.task-card').length;
+                document.getElementById(`count-${colId}`).innerText = count;
+            });
+        }
+
+        function getAllTasksContext() {
+            let context = "المهام الحالية في لوحة التحكم:\n";
+            ['todo-col', 'progress-col', 'done-col'].forEach(colId => {
+                const colName = document.getElementById(colId).querySelector('.column-header span').innerText;
+                const tasks = document.getElementById(`tasks-${colId}`).querySelectorAll('.task-content');
+                context += `- قسم [${colName}]:\n`;
+                if(tasks.length === 0) context += "  (لا توجد مهام حالياً)\n";
+                tasks.forEach(t => { context += `  * ${t.innerText}\n`; });
+            });
+            return context;
+        }
+
+        // طلب الـ AI
+        async function callGeminiWorkspace() {
+            const apiKey = document.getElementById('geminiApiKey').value.trim();
+            const command = document.getElementById('aiCommandInput').value.trim();
+            const displayArea = document.getElementById('aiResponseDisplay');
+
+            if (!apiKey) { alert('فضلاً أضف الـ API Key الخاص بـ Gemini!'); return; }
+            if (!command) { alert('اكتب أمرك للمساعد!'); return; }
+
+            displayArea.style.display = 'block';
+            displayArea.innerText = 'جاري معالجة طلبك وربطه ببيانات السوبربيس... 🧠';
+
+            const tasksContext = getAllTasksContext();
+            const fullPrompt = `${tasksContext}\n\nطلب المستخدم: "${command}"`;
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: fullPrompt }] }] })
+                });
+                const data = await response.json();
+                if (data.candidates) {
+                    displayArea.innerText = data.candidates[0].content.parts[0].text;
+                } else {
+                    displayArea.innerText = 'تأكد من صلاحية مفتاح Gemini.';
+                }
+            } catch (error) {
+                displayArea.innerText = 'حدث خطأ في الاتصال بالـ API.';
+            }
+        }
+    </script>
+</body>
+</html>
